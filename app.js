@@ -8,51 +8,49 @@ app.use(cors()); // Allow all origins
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-
-
-//connecting to atlas
+// Connecting to local MongoDB using MongoDB Compass
 async function run() {
+    const localUri = "mongodb://127.0.0.1:27017/BookStore"; // Update with your local database URL
 
+    const client = new MongoClient(localUri, { useNewUrlParser: true, useUnifiedTopology: true });
 
-    // const uri = "mongodb+srv://harshtemputil89:wiFUFPra1f4ZSVkx@cluster0.mftzekk.mongodb.net?retryWrites=true&w=majority";
+    try {
+        await client.connect();
 
-    const uri = "mongodb://mongodb://localhost:27017/";
+        const dbName = "BookStore";
+        const collectionName = "Books";
 
+        const database = client.db(dbName);
+        const collection = database.collection(collectionName);
 
-
-    const client = new MongoClient(uri);
-
-    await client.connect().then(console.log("connected")).catch(error => console.log(error));
-
-    const dbName = "BookStore";
-    const collectionName = "Books";
-
-    const database = client.db(dbName);
-    const collection = database.collection(collectionName);
-
-    collection.find({}).toArray((err, books) => {
-        if (err) {
-            console.error('Error fetching books:', err);
-        } else {
-            console.log('Books:', books);
-        }
-    })
-
-    await client.close();
+        const books = await collection.find({}).toArray();
+        return books;
+    } catch (error) {
+        console.error('Error connecting to local MongoDB:', error);
+        throw error;
+    } finally {
+        client.close();
+    }
 }
 
 const PORT = process.env.PORT || 3000;
 
-app.get("/status", (request, response) => {
-    const status = {
-        Status: "Running",
-    };
+app.get("/status", async (request, response) => {
+    try {
+        const books = await run();
+        const status = {
+            Status: "Running",
+            Books: books
+        };
 
-    run();
-
-    response.send(status);
+        response.send(status);
+    } catch (error) {
+        console.error('An error occurred:', error);
+        response.status(500).send({ error: "An error occurred" });
+    }
 });
 
 app.listen(PORT, () => {
     console.log("Server Listening on PORT:", PORT);
 });
+
